@@ -1,77 +1,110 @@
 package com.company;
 
-import javax.swing.*;
-import java.awt.*;
+import java.awt.Color;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
+import javax.swing.JPanel;
+import javax.swing.Timer;
 
+@SuppressWarnings("serial")
 public class Field extends JPanel {
 
-    // динамический список скачущих мячей
+    // Флаг приостановленности движения
+    private boolean paused5;
+    private boolean paused;
+    private boolean resume5;
+    // Динамический список скачущих мячей
     private ArrayList<BouncingBall> balls = new ArrayList<BouncingBall>(10);
 
-    // Флаг приостановленности движения
-    private boolean paused;
-
-    //Класс таймер отвечает за регулярную генерацию события типа ActionEvent
-    //При создании его экземпляра используется анонимный класс,
-    //реализующий интерфейс ActionListener
+    // Класс таймер отвечает за регулярную генерацию событий ActionEvent
+    // При создании его экземпляра используется анонимный класс,
+    // реализующий интерфейс ActionListener
     private Timer repaintTimer = new Timer(10, new ActionListener() {
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            //задача обработчика события ActionEvent одна - перерисовка окна
+        public void actionPerformed(ActionEvent ev) {
+            // Задача обработчика события ActionEvent - перерисовка окна
             repaint();
         }
     });
-
-    //Конструктор класса BouncingBall
-    public Field(){
-        //Установить цвет заднего фона белым
+    // Конструктор класса BouncingBall
+    public Field() {
+        // Установить цвет заднего фона белым
         setBackground(Color.WHITE);
-        //Запустить таймер перерисовки области
+        // Запустить таймер
         repaintTimer.start();
     }
 
-    //Метод добавления нового мяча в список
-    public void addBall(){
-        //Заключается в добавлении в список нового экземпляра BouncingBall
-        //Всю инициализацию BouncingBall выполняет в конструкторе
-        balls.add(new BouncingBall(this));
-    }
-
-    //Унаследованный от JPanel метод перерисовки компонента
-    public void PaintComponent(Graphics g){
-        //Вызвать версию метода, унаследованную от предка
+    // Унаследованный от JPanel метод перерисовки компонента
+    public void paintComponent(Graphics g) {
+        // Вызвать версию метода, унаследованную от предка
         super.paintComponent(g);
         Graphics2D canvas = (Graphics2D) g;
-        // Последовательность запросить прорисовку от всех мячей, хранимых в списке
-        for(BouncingBall ball: balls) {
+        // Последовательно запросить прорисовку от всех мячей из списка
+        for (BouncingBall ball: balls) {
             ball.paint(canvas);
         }
     }
 
-    //Синхронизированный, т.е. только 1 поток может одновременно быть внутри
-    public synchronized void pause(){
-        //Включить режим паузы
-        paused = true;
+    // Метод добавления нового мяча в список
+    public void addBall() {
+        //Заключается в добавлении в список нового экземпляра BouncingBall
+        // Всю инициализацию положения, скорости, размера, цвета
+        // BouncingBall выполняет сам в конструкторе
+        balls.add(new BouncingBall(this));
     }
 
-    //Синхронизированный метод проверки, может ли мяч двигаться
-    //(не включен ли режим паузы?)
-    public synchronized void canMove(BouncingBall ball)
-        throws InterruptedException{
-        if(paused) {
-            //Если режим паузы включен, то поток, зашедший внутрь
-            //данного метода, засыпает
-            wait();
-        }
+    // Метод синхронизированный, т.е. только один поток может
+    // одновременно быть внутри
+    public  void pause5() {
+        // Включить режим паузы
+        paused5 = true;
     }
-    // Синхронизированный, т. е. только 1 поток может одновременно быть внутри
-    public synchronized void resume(){
-        //Выключить режим паузы
+
+    public  void pause() {
+        // Включить режим паузы
+        paused = true;
+        paused5 = true;
+        resume5 = false;
+    }
+
+    public synchronized void resume5() {
+        // Включить режим паузы
+        paused5 = false;
+        resume5 = true;
+        notifyAll();
+    }
+
+    // Метод синхронизированный, т.е. только один поток может
+    // одновременно быть внутри
+    public synchronized void resume() {
+        // Выключить режим паузы
+        paused5 = false;
         paused = false;
         // Будим все ожидающие продолжения потоки
-        notify();
+        notifyAll();
+    }
+
+    // Синхронизированный метод проверки, может ли мяч двигаться
+    // (не включен ли режим паузы?)
+    public synchronized void canMove(BouncingBall ball) throws
+            InterruptedException {
+        // Если режим паузы включен, то поток, зашедший
+        // внутрь данного метода, засыпает
+        if (paused5) {
+            if (ball.getRadius() < 10) {
+                wait();
+            }
+        }
+        if(paused) {
+            if(resume5) {
+                if (ball.getRadius() > 10){
+                    wait();
+                }
+            } else {
+                wait();
+            }
+        }
     }
 }
